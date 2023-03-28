@@ -1,7 +1,11 @@
 package io.github.aaejo.dataexporter;
 
-import java.io.*;
-import java.sql.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Optional;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
@@ -11,13 +15,19 @@ import org.apache.poi.poifs.crypt.EncryptionInfo;
 import org.apache.poi.poifs.crypt.EncryptionMode;
 import org.apache.poi.poifs.crypt.Encryptor;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import io.micrometer.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
- 
 
 @Slf4j
 @Service
@@ -35,20 +45,20 @@ public class DataExporter {
         String sqlForChangeRows = "select distinct of.personID, of.salutation, of.fname, of.mname, of.lname, sd.address1, of.address2, of.address3, of.city, of.state, sd.postalCode, of.country, sd.department, of.institution, of.institutionId, of.primeEmail, of.userID, of.ORCID, of.ORCIDVal, of.personAttribute, of.memberStatus from originalfile of left join scrapeddata sd on of.primeEmail = sd.primeEmail and of.personAttribute = sd.personAttribute where of.primeEmail = sd.primeEmail and of.address1 not like sd.address1 or of.primeEmail = sd.primeEmail and of.postalCode not like sd.postalCode;";
         String sqlForDeleteRows = "select of.* from originalfile of where of.primeEmail not in (select sd.primeEmail from scrapeddata sd) or of.primeEmail in (select sd.primeEmail from scrapeddata sd) and of.personAttribute not in (select sd.personAttribute from scrapeddata sd left join originalfile of on sd.primeEmail = of.primeEmail where sd.primeEmail = of.primeEmail);";
         String sqlForNewRows = "select distinct sd.* from scrapeddata sd where sd.primeEmail not in (select of.primeEmail from originalfile of) or sd.primeEmail in (select of.primeEmail from originalfile of) and sd.personAttribute not in (select of.personAttribute from originalfile of where of.primeEmail = sd.primeEmail);";
-        String fileName = "D:/School Stuff/4th Year/CISC 498/NewDIAUsersExport.xlsx";
+        File dataFile = File.createTempFile("NewDIAUsersExport", ".xlsx");
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection();
-            PreparedStatement ps = connection.prepareStatement(sql);
-            PreparedStatement psSame = connection.prepareStatement(sqlForSameRows);
-            PreparedStatement psChange = connection.prepareStatement(sqlForChangeRows);
-            PreparedStatement psDelete = connection.prepareStatement(sqlForDeleteRows);
-            PreparedStatement psNew = connection.prepareStatement(sqlForNewRows);
+                PreparedStatement ps = connection.prepareStatement(sql);
+                PreparedStatement psSame = connection.prepareStatement(sqlForSameRows);
+                PreparedStatement psChange = connection.prepareStatement(sqlForChangeRows);
+                PreparedStatement psDelete = connection.prepareStatement(sqlForDeleteRows);
+                PreparedStatement psNew = connection.prepareStatement(sqlForNewRows);
 
-            ResultSet rs = ps.executeQuery();
-            ResultSet rsSame = psSame.executeQuery();
-            ResultSet rsChange = psChange.executeQuery();
-            ResultSet rsDelete = psDelete.executeQuery();
-            ResultSet rsNew = psNew.executeQuery()) {
+                ResultSet rs = ps.executeQuery();
+                ResultSet rsSame = psSame.executeQuery();
+                ResultSet rsChange = psChange.executeQuery();
+                ResultSet rsDelete = psDelete.executeQuery();
+                ResultSet rsNew = psNew.executeQuery()) {
 
             XSSFWorkbook workbook = new XSSFWorkbook();
             XSSFSheet sheet = workbook.createSheet("NewDIAUsersExport");
@@ -60,73 +70,75 @@ public class DataExporter {
             style1.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
             style1.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             int cellnum1 = 0;
-                Cell cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Person ID");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Salutation");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("First Name");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Middle Name");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Last Name");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Address1");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Address2");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Address3");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("City");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("State/Province");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Postal Code");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Country/Region");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Department");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Institution");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Institution Identifier");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Primary E-mail Address");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("User ID");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("ORCID");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("ORCID Validation");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Person Attribute");
-                cell1 = row1.createCell(cellnum1++);
-                cell1.setCellStyle(style1);
-                cell1.setCellValue("Member Status");
-            
+            Cell cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Person ID");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Salutation");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("First Name");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Middle Name");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Last Name");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Address1");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Address2");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Address3");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("City");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("State/Province");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Postal Code");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Country/Region");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Department");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Institution");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Institution Identifier");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Primary E-mail Address");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("User ID");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("ORCID");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("ORCID Validation");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Person Attribute");
+            cell1 = row1.createCell(cellnum1++);
+            cell1.setCellStyle(style1);
+            cell1.setCellValue("Member Status");
+
             while (rsSame.next()) {
-                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal, countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal, personAttribute, memberStatus;
-                
+                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal,
+                        countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal,
+                        personAttribute, memberStatus;
+
                 personID = rsSame.getString("personId");
                 salutation = rsSame.getString("salutation");
                 fname = rsSame.getString("fname");
@@ -148,7 +160,7 @@ public class DataExporter {
                 ORCIDVal = rsSame.getString("ORCIDVal");
                 personAttribute = rsSame.getString("personAttribute");
                 memberStatus = rsSame.getString("memberStatus");
-                
+
                 Row row = sheet.createRow(rownum++);
                 int cellnum = 0;
                 Cell cell = row.createCell(cellnum++);
@@ -195,11 +207,13 @@ public class DataExporter {
                 cell.setCellValue(memberStatus);
 
             }
-            
+
             while (rsChange.next()) {
-                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal, countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal, personAttribute, memberStatus;
-                
-                    personID = rsChange.getString("personId");
+                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal,
+                        countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal,
+                        personAttribute, memberStatus;
+
+                personID = rsChange.getString("personId");
                 salutation = rsChange.getString("salutation");
                 fname = rsChange.getString("fname");
                 mname = rsChange.getString("mname");
@@ -219,7 +233,7 @@ public class DataExporter {
                 ORCID = rsChange.getString("ORCID");
                 ORCIDVal = rsChange.getString("ORCIDVal");
                 personAttribute = rsChange.getString("personAttribute");
-                memberStatus = rsChange.getString("memberStatus");                
+                memberStatus = rsChange.getString("memberStatus");
 
                 Row row = sheet.createRow(rownum++);
                 CellStyle style = workbook.createCellStyle();
@@ -294,9 +308,11 @@ public class DataExporter {
             }
 
             while (rsNew.next()) {
-                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal, countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal, personAttribute, memberStatus;
-                
-                    personID = "";
+                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal,
+                        countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal,
+                        personAttribute, memberStatus;
+
+                personID = "";
                 salutation = rsNew.getString("salutation");
                 fname = rsNew.getString("fname");
                 mname = rsNew.getString("mname");
@@ -316,7 +332,7 @@ public class DataExporter {
                 ORCID = "";
                 ORCIDVal = "";
                 personAttribute = rsNew.getString("personAttribute");
-                memberStatus = "";                
+                memberStatus = "";
 
                 Row row = sheet.createRow(rownum++);
                 CellStyle style = workbook.createCellStyle();
@@ -391,9 +407,11 @@ public class DataExporter {
             }
 
             while (rsDelete.next()) {
-                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal, countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal, personAttribute, memberStatus;
-                
-                    personID = rsDelete.getString("personId");
+                String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal,
+                        countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal,
+                        personAttribute, memberStatus;
+
+                personID = rsDelete.getString("personId");
                 salutation = rsDelete.getString("salutation");
                 fname = rsDelete.getString("fname");
                 mname = rsDelete.getString("mname");
@@ -413,7 +431,7 @@ public class DataExporter {
                 ORCID = rsDelete.getString("ORCID");
                 ORCIDVal = rsDelete.getString("ORCIDVal");
                 personAttribute = rsDelete.getString("personAttribute");
-                memberStatus = rsDelete.getString("memberStatus");                
+                memberStatus = rsDelete.getString("memberStatus");
 
                 Row row = sheet.createRow(rownum++);
                 CellStyle style = workbook.createCellStyle();
@@ -491,16 +509,16 @@ public class DataExporter {
                 sheet.autoSizeColumn(i);
             }
 
-            try (FileOutputStream out = new FileOutputStream(new File(fileName))) {
+            try (FileOutputStream out = new FileOutputStream(dataFile)) {
                 workbook.write(out);
             }
             workbook.close();
 
-            log.info("Excel written successfully..");
+            log.info("Excel written successfully.");
 
-            if (password.isEmpty()) {
-                log.info("No password provided, skipping encryption..");
-                return fileName;
+            if (password.isEmpty() || StringUtils.isBlank(password.get())) {
+                log.info("No password provided, skipping encryption.");
+                return dataFile.getAbsolutePath();
             }
 
             try (POIFSFileSystem fs = new POIFSFileSystem()) {
@@ -508,22 +526,20 @@ public class DataExporter {
                 Encryptor enc = info.getEncryptor();
                 enc.confirmPassword(password.get());
                 ZipSecureFile.setMinInflateRatio(0);
-                try (OPCPackage opc = OPCPackage.open(new File(fileName), PackageAccess.READ_WRITE);
-                    OutputStream os = enc.getDataStream(fs)) {
+                try (OPCPackage opc = OPCPackage.open(dataFile, PackageAccess.READ_WRITE);
+                        OutputStream os = enc.getDataStream(fs)) {
                     opc.save(os);
                     opc.close();
                 }
                 ZipSecureFile.setMinInflateRatio(0);
-                try (FileOutputStream fos = new FileOutputStream(fileName)) {
+                try (FileOutputStream fos = new FileOutputStream(dataFile)) {
                     fs.writeFilesystem(fos);
                     fs.close();
                 }
             }
 
-            log.info("Excel encrypted successfully..");
-
-            return fileName;
-
+            log.info("Excel encrypted successfully.");
+            return dataFile.getAbsolutePath();
         }
-    }  
+    }
 }
