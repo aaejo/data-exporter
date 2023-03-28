@@ -2,6 +2,7 @@ package io.github.aaejo.dataexporter;
 
 import java.io.*;
 import java.sql.*;
+import java.util.Optional;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.openxml4j.opc.PackageAccess;
@@ -28,13 +29,13 @@ public class DataExporter {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void retrieveData() throws Exception {
+    public String retrieveData(Optional<String> password) throws Exception {
         String sql = "use jds;";
         String sqlForSameRows = "select distinct of.* from originalfile of left join scrapeddata sd on of.primeEmail = sd.primeEmail and of.personAttribute = sd.personAttribute where of.primeEmail = sd.primeEmail and of.address1 = sd.address1 and of.postalCode = sd.postalCode and of.institution = sd.institution and of.department = sd.department;";
         String sqlForChangeRows = "select distinct of.personID, of.salutation, of.fname, of.mname, of.lname, sd.address1, of.address2, of.address3, of.city, of.state, sd.postalCode, of.country, sd.department, of.institution, of.institutionId, of.primeEmail, of.userID, of.ORCID, of.ORCIDVal, of.personAttribute, of.memberStatus from originalfile of left join scrapeddata sd on of.primeEmail = sd.primeEmail and of.personAttribute = sd.personAttribute where of.primeEmail = sd.primeEmail and of.address1 not like sd.address1 or of.primeEmail = sd.primeEmail and of.postalCode not like sd.postalCode;";
         String sqlForDeleteRows = "select of.* from originalfile of where of.primeEmail not in (select sd.primeEmail from scrapeddata sd) or of.primeEmail in (select sd.primeEmail from scrapeddata sd) and of.personAttribute not in (select sd.personAttribute from scrapeddata sd left join originalfile of on sd.primeEmail = of.primeEmail where sd.primeEmail = of.primeEmail);";
         String sqlForNewRows = "select distinct sd.* from scrapeddata sd where sd.primeEmail not in (select of.primeEmail from originalfile of) or sd.primeEmail in (select of.primeEmail from originalfile of) and sd.personAttribute not in (select of.personAttribute from originalfile of where of.primeEmail = sd.primeEmail);";
-
+        String fileName = "D:/School Stuff/4th Year/CISC 498/NewDIAUsersExport.xlsx";
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection();
             PreparedStatement ps = connection.prepareStatement(sql);
@@ -490,31 +491,38 @@ public class DataExporter {
                 sheet.autoSizeColumn(i);
             }
 
-            try (FileOutputStream out = new FileOutputStream(new File("D:/School Stuff/4th Year/CISC 498/NewDIAUsersExport.xlsx"))) {
+            try (FileOutputStream out = new FileOutputStream(new File(fileName))) {
                 workbook.write(out);
             }
             workbook.close();
 
             log.info("Excel written successfully..");
 
+            if (password.isEmpty()) {
+                log.info("No password provided, skipping encryption..");
+                return fileName;
+            }
+
             try (POIFSFileSystem fs = new POIFSFileSystem()) {
                 EncryptionInfo info = new EncryptionInfo(EncryptionMode.agile);
                 Encryptor enc = info.getEncryptor();
-                enc.confirmPassword("DIA_CUP");
+                enc.confirmPassword(password.get());
                 ZipSecureFile.setMinInflateRatio(0);
-                try (OPCPackage opc = OPCPackage.open(new File("D:/School Stuff/4th Year/CISC 498/NewDIAUsersExport.xlsx"), PackageAccess.READ_WRITE);
+                try (OPCPackage opc = OPCPackage.open(new File(fileName), PackageAccess.READ_WRITE);
                     OutputStream os = enc.getDataStream(fs)) {
                     opc.save(os);
                     opc.close();
                 }
                 ZipSecureFile.setMinInflateRatio(0);
-                try (FileOutputStream fos = new FileOutputStream("D:/School Stuff/4th Year/CISC 498/NewDIAUsersExport.xlsx")) {
+                try (FileOutputStream fos = new FileOutputStream(fileName)) {
                     fs.writeFilesystem(fos);
                     fs.close();
                 }
             }
 
             log.info("Excel encrypted successfully..");
+
+            return fileName;
 
         }
     }  
