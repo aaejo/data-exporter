@@ -23,6 +23,7 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class DataExporter {
 
+    @Value("${aaejo.jds.data-exporter.mark-deletions}")
+    private boolean markDeletions;
     private final JdbcTemplate jdbcTemplate;
 
     public DataExporter(JdbcTemplate jdbcTemplate) {
@@ -409,7 +412,7 @@ public class DataExporter {
 
             }
 
-            while (rsDelete.next()) {
+            while (markDeletions && rsDelete.next()) {
                 String personID, salutation, fname, mname, lname, address1, address2, address3, city, stateProv, postal,
                         countryRegion, department, institution, institutionID, primeEmail, userID, ORCID, ORCIDVal,
                         personAttribute, memberStatus;
